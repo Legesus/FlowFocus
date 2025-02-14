@@ -1,0 +1,33 @@
+{
+  "name": "flowfocus",
+  "version": "1.0.0",
+  "description": "AI-Powered Deep Work Companion",
+  "main": "main/index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "electron-dev": "electron .",
+    "electron-build": "electron-builder"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@prisma/client": "^6.3.1",
+    "@types/node": "^22.13.4",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "autoprefixer": "^10.4.16",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "next": "^15.1.7",
+    "openai": "^4.85.1",
+    "postcss": "^8.4.31",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^3.3.0",
+    "typescript": "^5.7.3"
+  }
+}
