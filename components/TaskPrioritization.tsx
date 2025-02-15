@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { useSettings } from '../contexts/SettingsContext';
+import { useModal } from '../contexts/ModalContext';
 import * as pdfjsLib from 'pdfjs-dist';
 import jsPDF from 'jspdf';
 
@@ -17,13 +18,21 @@ export interface Task {
 
 const TaskPrioritization = () => {
   const { selectedModel, geminiApiKey } = useSettings();
+  const { showModal } = useModal();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [taskForm, setTaskForm] = useState({
+  const [taskForm, setTaskForm] = useState<{
+    title: string;
+    subtasks: Array<{
+      description: string;
+      estimatedTime: number;
+      priority: 'high' | 'medium' | 'low';
+    }>;
+  }>({
     title: '',
-    subtasks: [{ description: '', estimatedTime: 0, priority: 'medium' as const }]
+    subtasks: [{ description: '', estimatedTime: 0, priority: 'medium' }]
   });
+  const [priorityAllocation, setPriorityAllocation] = useState<'balanced' | 'timeWeighted' | 'sequential'>('balanced');
   const [uploadStatus, setUploadStatus] = useState<{
     status: 'idle' | 'uploading' | 'processing' | 'error';
     message?: string;
@@ -74,7 +83,35 @@ const TaskPrioritization = () => {
 
     setTasks([...tasks, newTask]);
     setTaskForm({ title: '', subtasks: [{ description: '', estimatedTime: 0, priority: 'medium' }] });
-    setShowModal(false);
+  };
+
+  const allocatePriorities = (subtasks: Task['subtasks'], method: string): Task['subtasks'] => {
+    switch (method) {
+      case 'timeWeighted':
+        return subtasks.map(task => ({
+          ...task,
+          priority: task.estimatedTime > 30 ? 'high' as const : 
+                   task.estimatedTime > 15 ? 'medium' as const : 
+                   'low' as const
+        }));
+      
+      case 'sequential':
+        return subtasks.map((task, index) => ({
+          ...task,
+          priority: index % 3 === 0 ? 'high' as const : 
+                   index % 3 === 1 ? 'medium' as const : 
+                   'low' as const
+        }));
+      
+      case 'balanced':
+      default:
+        return subtasks.map((task, index) => ({
+          ...task,
+          priority: index < subtasks.length / 3 ? 'high' as const : 
+                   index < (subtasks.length * 2) / 3 ? 'medium' as const : 
+                   'low' as const
+        }));
+    }
   };
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -121,19 +158,17 @@ const TaskPrioritization = () => {
       setUploadStatus({ status: 'processing', message: 'Analyzing content...' });
       const analysis = await response.json();
       
-      // Convert the PDF analysis into our new task structure
-      const newTask: Task = {
-        id: Date.now().toString(),
-        title: analysis.title,
-        totalEstimatedTime: analysis.subtasks?.reduce((acc: number, st: any) => acc + (st.estimatedTime || 0), 0) || 0,
+      // Set the form data with PDF analysis and show modal
+      setTaskForm({
+        title: analysis.title || 'PDF Task',
         subtasks: analysis.subtasks?.map((st: any) => ({
           description: st.description,
           estimatedTime: st.estimatedTime || 0,
           priority: st.priority || 'medium'
         })) || []
-      };
-
-      setTasks([...tasks, newTask]);
+      });
+      
+      showPdfTaskModal();
       setUploadStatus({ status: 'idle' });
 
     } catch (error) {
@@ -147,6 +182,23 @@ const TaskPrioritization = () => {
       setIsSubmitting(false);
       if (e.target) e.target.value = ''; // Reset file input
     }
+  };
+
+  const handlePdfSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskForm.title.trim() || isSubmitting) return;
+
+    const totalTime = calculateTotalTime(taskForm.subtasks);
+    
+    const newTask: Task = {
+      id: Date.now().toString(),
+      title: taskForm.title,
+      totalEstimatedTime: totalTime,
+      subtasks: taskForm.subtasks
+    };
+
+    setTasks([...tasks, newTask]);
+    setTaskForm({ title: '', subtasks: [{ description: '', estimatedTime: 0, priority: 'medium' }] });
   };
 
   const exportTaskToPDF = (task: Task) => {
@@ -187,11 +239,188 @@ const TaskPrioritization = () => {
     pdf.save(`task-${task.id}.pdf`);
   };
 
+  const showManualTaskModal = () => {
+    showModal(
+      <>
+        <h3 className="text-xl font-semibold mb-4">Add New Task</h3>
+        <form onSubmit={handleManualSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
+              <input
+                type="text"
+                value={taskForm.title}
+                onChange={(e) => setTaskForm({...taskForm, title: e.target.value})}
+                className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                required
+              />
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">Subtasks</label>
+              {taskForm.subtasks.map((subtask, index) => (
+                <div key={index} className="flex gap-2 items-start">
+                  <div className="flex-1 space-y-2">
+                    <input
+                      type="text"
+                      value={subtask.description}
+                      onChange={(e) => handleSubtaskChange(index, 'description', e.target.value)}
+                      placeholder="Subtask description"
+                      className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={subtask.estimatedTime}
+                        onChange={(e) => handleSubtaskChange(index, 'estimatedTime', parseInt(e.target.value) || 0)}
+                        placeholder="Minutes"
+                        className="w-24 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                      />
+                      <select
+                        value={subtask.priority}
+                        onChange={(e) => handleSubtaskChange(index, 'priority', e.target.value as 'high' | 'medium' | 'low')}
+                        className="flex-1 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                      >
+                        <option value="high">High Priority</option>
+                        <option value="medium">Medium Priority</option>
+                        <option value="low">Low Priority</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSubtask(index)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={handleAddSubtask}
+                className="w-full p-2 rounded-lg border border-dashed border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+              >
+                + Add Subtask
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-3 mt-6">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 p-2 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
+            >
+              {isSubmitting ? 'Adding...' : 'Add Task'}
+            </button>
+          </div>
+        </form>
+      </>
+    );
+  };
+
+  const showPdfTaskModal = () => {
+    showModal(
+      <>
+        <h3 className="text-xl font-semibold mb-4">Review PDF Task</h3>
+        <form onSubmit={handlePdfSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
+              <input
+                type="text"
+                value={taskForm.title}
+                onChange={(e) => setTaskForm({...taskForm, title: e.target.value})}
+                className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Priority Allocation</label>
+              <select
+                value={priorityAllocation}
+                onChange={(e) => {
+                  setPriorityAllocation(e.target.value as typeof priorityAllocation);
+                  const updatedSubtasks = allocatePriorities(taskForm.subtasks, e.target.value);
+                  setTaskForm({ ...taskForm, subtasks: updatedSubtasks });
+                }}
+                className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+              >
+                <option value="balanced">Balanced Distribution</option>
+                <option value="timeWeighted">Time-based Priority</option>
+                <option value="sequential">Sequential Distribution</option>
+              </select>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">Subtasks</label>
+              {taskForm.subtasks.map((subtask, index) => (
+                <div key={index} className="flex gap-2 items-start">
+                  <div className="flex-1 space-y-2">
+                    <input
+                      type="text"
+                      value={subtask.description}
+                      onChange={(e) => handleSubtaskChange(index, 'description', e.target.value)}
+                      placeholder="Subtask description"
+                      className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={subtask.estimatedTime}
+                        onChange={(e) => handleSubtaskChange(index, 'estimatedTime', parseInt(e.target.value) || 0)}
+                        placeholder="Minutes"
+                        className="w-24 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                      />
+                      <select
+                        value={subtask.priority}
+                        onChange={(e) => handleSubtaskChange(index, 'priority', e.target.value as 'high' | 'medium' | 'low')}
+                        className="flex-1 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                      >
+                        <option value="high">High Priority</option>
+                        <option value="medium">Medium Priority</option>
+                        <option value="low">Low Priority</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSubtask(index)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={handleAddSubtask}
+                className="w-full p-2 rounded-lg border border-dashed border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+              >
+                + Add Subtask
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-3 mt-6">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 p-2 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
+            >
+              {isSubmitting ? 'Adding...' : 'Add Task'}
+            </button>
+          </div>
+        </form>
+      </>
+    );
+  };
+
   return (
     <div>
       <div className="flex gap-4 mb-6">
         <button
-          onClick={() => setShowModal(true)}
+          onClick={showManualTaskModal}
           className="flex-1 p-4 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-lg flex items-center justify-center gap-2"
         >
           <span>📝</span>
@@ -226,93 +455,6 @@ const TaskPrioritization = () => {
           )}
         </div>
       </div>
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-semibold mb-4">Add New Task</h3>
-            <form onSubmit={handleManualSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
-                  <input
-                    type="text"
-                    value={taskForm.title}
-                    onChange={(e) => setTaskForm({...taskForm, title: e.target.value})}
-                    className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <label className="block text-sm font-medium text-gray-700">Subtasks</label>
-                  {taskForm.subtasks.map((subtask, index) => (
-                    <div key={index} className="flex gap-2 items-start">
-                      <div className="flex-1 space-y-2">
-                        <input
-                          type="text"
-                          value={subtask.description}
-                          onChange={(e) => handleSubtaskChange(index, 'description', e.target.value)}
-                          placeholder="Subtask description"
-                          className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                        />
-                        <div className="flex gap-2">
-                          <input
-                            type="number"
-                            value={subtask.estimatedTime}
-                            onChange={(e) => handleSubtaskChange(index, 'estimatedTime', parseInt(e.target.value) || 0)}
-                            placeholder="Minutes"
-                            className="w-24 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                          />
-                          <select
-                            value={subtask.priority}
-                            onChange={(e) => handleSubtaskChange(index, 'priority', e.target.value as 'high' | 'medium' | 'low')}
-                            className="flex-1 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                          >
-                            <option value="high">High Priority</option>
-                            <option value="medium">Medium Priority</option>
-                            <option value="low">Low Priority</option>
-                          </select>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSubtask(index)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={handleAddSubtask}
-                    className="w-full p-2 rounded-lg border border-dashed border-indigo-300 text-indigo-600 hover:bg-indigo-50"
-                  >
-                    + Add Subtask
-                  </button>
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 p-2 rounded-lg border border-gray-300 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 p-2 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
-                >
-                  {isSubmitting ? 'Adding...' : 'Add Task'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       <div className="space-y-4">
         {tasks.map((task: Task) => (
