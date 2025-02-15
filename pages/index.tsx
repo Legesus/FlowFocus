@@ -21,28 +21,34 @@ const Home: NextPage = () => {
             <Calendar />
           </div>
 
-          {/* Main Content */}
-          <div className="col-span-9 space-y-6">
-            <section className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-xl transition-all hover:shadow-2xl border border-indigo-50/50">
-              <h2 className="text-xl font-semibold mb-6 text-indigo-900 flex items-center gap-2">
-                <span className="text-2xl">📋</span> Task Prioritization
-              </h2>
-              <TaskPrioritization />
-            </section>
+          {/* Main Content - 2 Columns */}
+          <div className="col-span-9 grid grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-6">
+              <section className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-xl transition-all hover:shadow-2xl border border-indigo-50/50">
+                <h2 className="text-xl font-semibold mb-6 text-indigo-900 flex items-center gap-2">
+                  <span className="text-2xl">📋</span> Task Prioritization
+                </h2>
+                <TaskPrioritization />
+              </section>
 
-            <section className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-xl transition-all hover:shadow-2xl border border-indigo-50/50">
-              <h2 className="text-xl font-semibold mb-6 text-indigo-900 flex items-center gap-2">
-                <span className="text-2xl">⏱️</span> Focus Mode
-              </h2>
-              <FocusMode />
-            </section>
+              <section className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-xl transition-all hover:shadow-2xl border border-indigo-50/50">
+                <h2 className="text-xl font-semibold mb-6 text-indigo-900 flex items-center gap-2">
+                  <span className="text-2xl">📊</span> Analytics
+                </h2>
+                <Analytics tasks={tasks} />
+              </section>
+            </div>
 
-            <section className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-xl transition-all hover:shadow-2xl border border-indigo-50/50">
-              <h2 className="text-xl font-semibold mb-6 text-indigo-900 flex items-center gap-2">
-                <span className="text-2xl">📊</span> Analytics
-              </h2>
-              <Analytics tasks={tasks} />
-            </section>
+            {/* Right Column */}
+            <div>
+              <section className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-xl transition-all hover:shadow-2xl border border-indigo-50/50">
+                <h2 className="text-xl font-semibold mb-6 text-indigo-900 flex items-center gap-2">
+                  <span className="text-2xl">⏱️</span> Focus Mode
+                </h2>
+                <FocusMode />
+              </section>
+            </div>
           </div>
         </div>
       </main>
