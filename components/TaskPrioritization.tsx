@@ -41,7 +41,8 @@ const TaskPrioritization = () => {
     try {
       console.log('🤖 Initializing Gemini API...');
       const genAI = new GoogleGenerativeAI(geminiApiKey);
-      const model = genAI.getGenerativeModel({ model: selectedModel });
+      // Always use gemini-pro for text analysis
+      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
       console.log('🔄 Analyzing task with Gemini AI...');
       const prompt = `As an AI task prioritization expert, analyze this task and categorize it. Consider the following criteria:
@@ -86,7 +87,8 @@ Provide a JSON response with:
     try {
       console.log('🤖 Generating subtasks with Gemini AI...');
       const genAI = new GoogleGenerativeAI(geminiApiKey);
-      const model = genAI.getGenerativeModel({ model: selectedModel });
+      // Always use gemini-pro for text analysis
+      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
       const prompt = `As an AI task breakdown expert, analyze this task and break it down into smaller subtasks.
       
@@ -166,6 +168,15 @@ Format response as JSON array:
       return;
     }
 
+    if (selectedModel !== 'gemini-pro-vision') {
+      setUploadStatus({
+        status: 'error',
+        message: 'Please select Gemini Pro Vision model in Settings for PDF processing'
+      });
+      if (e.target) e.target.value = '';
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setUploadStatus({ status: 'uploading', message: 'Uploading PDF...' });
@@ -173,6 +184,7 @@ Format response as JSON array:
       const formData = new FormData();
       formData.append('pdf', file);
       formData.append('apiKey', geminiApiKey);
+      formData.append('model', selectedModel);
 
       const response = await fetch('/api/parse-pdf', {
         method: 'POST',

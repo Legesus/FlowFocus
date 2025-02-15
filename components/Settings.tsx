@@ -14,13 +14,24 @@ const Settings = () => {
   } = useSettings();
 
   const [showApiKey, setShowApiKey] = useState(false);
+  const [showModelWarning, setShowModelWarning] = useState(false);
+
+  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newModel = e.target.value;
+    if (newModel === 'gemini-pro') {
+      setShowModelWarning(true);
+    } else {
+      setShowModelWarning(false);
+    }
+    setSelectedModel(newModel);
+  };
 
   return (
     <div className="space-y-6">
       {/* Model Selection and API Key */}
       <div className="space-y-2">
         <div className="flex items-center justify-between mb-4">
-          <label className="block text-sm font-medium text-gray-700">Selected Model</label>
+          <label className="block text-sm font-medium text-gray-700">Gemini Model</label>
           <button
             onClick={() => setShowApiKey(!showApiKey)}
             className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
@@ -67,15 +78,26 @@ const Settings = () => {
           </div>
         )}
 
-        <select
-          value={selectedModel}
-          onChange={(e) => setSelectedModel(e.target.value)}
-          className="w-full p-2 rounded-lg border border-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent bg-white"
-        >
-          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-          <option value="gemini-2.0-flash-lite-preview-02-05">Gemini 2.0 Flash Lite Preview</option>
-          <option value="gemini-2.0-pro-exp-02-05">Gemini 2.0 Pro Experimental</option>
-        </select>
+        <div className="space-y-2">
+          <select
+            value={selectedModel}
+            onChange={handleModelChange}
+            className="w-full p-2 rounded-lg border border-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent bg-white"
+          >
+            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+            <option value="gemini-2.0-pro-exp-02-05">Gemini 2.0 Pro Experimental</option>
+          </select>
+          {showModelWarning && (
+            <div className="p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-700">
+                ⚠️ Note: Gemini Pro is for text analysis only. For PDF processing, use Gemini Pro Vision.
+              </p>
+            </div>
+          )}
+          <p className="text-xs text-gray-500">
+            Select 'Gemini Pro Vision' for PDF processing. Text analysis will automatically use Gemini Pro.
+          </p>
+        </div>
       </div>
 
       {/* Calendar Sync Options */}

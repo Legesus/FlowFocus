@@ -22,7 +22,6 @@ export const config = {
   },
 };
 
-const MODEL_NAME = "gemini-pro-vision";
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -41,9 +40,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const [fields, files] = await form.parse(req);
     const file = files.pdf?.[0];
     const apiKey = fields.apiKey?.[0];
+    const model = fields.model?.[0];
 
     if (!apiKey) {
       return res.status(400).json({ error: "API key is required" });
+    }
+
+    if (!model) {
+      return res.status(400).json({ error: "Model selection is required" });
     }
 
     if (!file) {
@@ -63,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const aiModel = genAI.getGenerativeModel({ model });
 
     const prompt = `Analyze this PDF and extract the following information:
 1. Task title/name
@@ -85,7 +89,7 @@ The response MUST be in this exact JSON format:
   ]
 }`;
 
-    const result = await model.generateContent([
+    const result = await aiModel.generateContent([
       prompt,
       {
         inlineData: {
