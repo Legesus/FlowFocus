@@ -18,7 +18,7 @@ export interface Task {
 
 const TaskPrioritization = () => {
   const { selectedModel, geminiApiKey } = useSettings();
-  const { showModal } = useModal();
+  const { showModal, hideModal } = useModal();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [taskForm, setTaskForm] = useState<{
@@ -83,6 +83,7 @@ const TaskPrioritization = () => {
 
     setTasks([...tasks, newTask]);
     setTaskForm({ title: '', subtasks: [{ description: '', estimatedTime: 0, priority: 'medium' }] });
+    hideModal();
   };
 
   const allocatePriorities = (subtasks: Task['subtasks'], method: string): Task['subtasks'] => {
@@ -168,7 +169,7 @@ const TaskPrioritization = () => {
         })) || []
       });
       
-      showPdfTaskModal();
+      showPdfTaskModal(); // This will now use the global modal
       setUploadStatus({ status: 'idle' });
 
     } catch (error) {
@@ -199,6 +200,7 @@ const TaskPrioritization = () => {
 
     setTasks([...tasks, newTask]);
     setTaskForm({ title: '', subtasks: [{ description: '', estimatedTime: 0, priority: 'medium' }] });
+    hideModal();
   };
 
   const exportTaskToPDF = (task: Task) => {

@@ -1,4 +1,5 @@
-import React, { createContext, useContext, ReactNode, useState } from 'react';
+import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ModalContextType {
   showModal: (content: ReactNode) => void;
@@ -11,6 +12,12 @@ const ModalContext = createContext<ModalContextType | undefined>(undefined);
 export function ModalProvider({ children }: { children: ReactNode }) {
   const [modalContent, setModalContent] = useState<ReactNode | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   const showModal = (content: ReactNode) => {
     setModalContent(content);
@@ -19,16 +26,16 @@ export function ModalProvider({ children }: { children: ReactNode }) {
 
   const hideModal = () => {
     setIsOpen(false);
-    // Clear content after animation completes
     setTimeout(() => setModalContent(null), 200);
   };
 
   return (
     <ModalContext.Provider value={{ showModal, hideModal, isOpen }}>
       {children}
-      {isOpen && (
+      {mounted && isOpen && modalContent && createPortal(
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto"
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 overflow-y-auto"
+          style={{ zIndex: 9999 }}
           onClick={hideModal}
         >
           <div 
@@ -37,7 +44,8 @@ export function ModalProvider({ children }: { children: ReactNode }) {
           >
             {modalContent}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </ModalContext.Provider>
   );
