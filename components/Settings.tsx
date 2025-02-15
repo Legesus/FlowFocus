@@ -18,7 +18,7 @@ const Settings = () => {
 
   const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newModel = e.target.value;
-    if (newModel === 'gemini-pro') {
+    if (newModel === 'gemini-2.0-flash') {
       setShowModelWarning(true);
     } else {
       setShowModelWarning(false);

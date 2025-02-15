@@ -41,8 +41,8 @@ const TaskPrioritization = () => {
     try {
       console.log('🤖 Initializing Gemini API...');
       const genAI = new GoogleGenerativeAI(geminiApiKey);
-      // Always use gemini-pro for text analysis
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+      // Always use gemini-2.0-flash for text analysis
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
       console.log('🔄 Analyzing task with Gemini AI...');
       const prompt = `As an AI task prioritization expert, analyze this task and categorize it. Consider the following criteria:
@@ -87,8 +87,8 @@ Provide a JSON response with:
     try {
       console.log('🤖 Generating subtasks with Gemini AI...');
       const genAI = new GoogleGenerativeAI(geminiApiKey);
-      // Always use gemini-pro for text analysis
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+      // Always use gemini-2.0-flash for text analysis
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
       const prompt = `As an AI task breakdown expert, analyze this task and break it down into smaller subtasks.
       
@@ -168,7 +168,7 @@ Format response as JSON array:
       return;
     }
 
-    if (selectedModel !== 'gemini-pro-vision') {
+    if (selectedModel !== 'gemini-2.0-flash') {
       setUploadStatus({
         status: 'error',
         message: 'Please select Gemini Pro Vision model in Settings for PDF processing'
