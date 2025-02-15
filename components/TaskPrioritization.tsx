@@ -315,6 +315,21 @@ const TaskPrioritization = () => {
       )}
 
       <div className="space-y-4">
+        <div className="flex gap-4 justify-end text-sm">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-red-100 border border-red-200"></span>
+            <span className="text-gray-600">High Priority</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-yellow-100 border border-yellow-200"></span>
+            <span className="text-gray-600">Medium Priority</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-green-100 border border-green-200"></span>
+            <span className="text-gray-600">Low Priority</span>
+          </div>
+        </div>
+
         {tasks.map((task: Task) => (
           <div 
             key={task.id} 
@@ -340,12 +355,35 @@ const TaskPrioritization = () => {
             {task.subtasks && task.subtasks.length > 0 && (
               <div className="mt-3 space-y-2">
                 {task.subtasks.map((subtask, index) => (
-                  <div key={index} className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
-                    <span className="text-gray-400">{index + 1}.</span>
+                  <div 
+                    key={index} 
+                    className={`flex items-center gap-2 p-2 rounded-lg ${
+                      subtask.priority === 'high' 
+                        ? 'bg-red-50 border border-red-100' 
+                        : subtask.priority === 'medium'
+                        ? 'bg-yellow-50 border border-yellow-100'
+                        : 'bg-green-50 border border-green-100'
+                    }`}
+                  >
+                    <span className={`text-sm font-medium ${
+                      subtask.priority === 'high' 
+                        ? 'text-red-600' 
+                        : subtask.priority === 'medium'
+                        ? 'text-yellow-600'
+                        : 'text-green-600'
+                    }`}>{index + 1}.</span>
                     <div className="flex-1">
                       <p className="text-gray-700">{subtask.description}</p>
-                      <p className="text-gray-500 text-sm">
-                        {subtask.estimatedTime} mins • Priority: {subtask.priority}
+                      <p className={`text-sm ${
+                        subtask.priority === 'high' 
+                          ? 'text-red-500' 
+                          : subtask.priority === 'medium'
+                          ? 'text-yellow-600'
+                          : 'text-green-500'
+                      }`}>
+                        {subtask.estimatedTime} mins • Priority: {
+                          <span className="font-medium">{subtask.priority}</span>
+                        }
                       </p>
                     </div>
                   </div>
