@@ -24,6 +24,10 @@ const TaskPrioritization = () => {
     title: '',
     subtasks: [{ description: '', estimatedTime: 0, priority: 'medium' as const }]
   });
+  const [uploadStatus, setUploadStatus] = useState<{
+    status: 'idle' | 'uploading' | 'processing' | 'error';
+    message?: string;
+  }>({ status: 'idle' });
 
   const calculateTotalTime = (subtasks: Task['subtasks']) => {
     return subtasks.reduce((acc, subtask) => acc + subtask.estimatedTime, 0);
@@ -73,6 +77,116 @@ const TaskPrioritization = () => {
     setShowModal(false);
   };
 
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!geminiApiKey) {
+      setUploadStatus({
+        status: 'error',
+        message: 'Please set your Gemini API key in Settings'
+      });
+      if (e.target) e.target.value = '';
+      return;
+    }
+
+    if (selectedModel !== 'gemini-2.0-flash') {
+      setUploadStatus({
+        status: 'error',
+        message: 'Please select Gemini Pro Vision model in Settings for PDF processing'
+      });
+      if (e.target) e.target.value = '';
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setUploadStatus({ status: 'uploading', message: 'Uploading PDF...' });
+      
+      const formData = new FormData();
+      formData.append('pdf', file);
+      formData.append('apiKey', geminiApiKey);
+      formData.append('model', selectedModel);
+
+      const response = await fetch('/api/parse-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.details || 'Failed to process PDF');
+      }
+
+      setUploadStatus({ status: 'processing', message: 'Analyzing content...' });
+      const analysis = await response.json();
+      
+      // Convert the PDF analysis into our new task structure
+      const newTask: Task = {
+        id: Date.now().toString(),
+        title: analysis.title,
+        totalEstimatedTime: analysis.subtasks?.reduce((acc: number, st: any) => acc + (st.estimatedTime || 0), 0) || 0,
+        subtasks: analysis.subtasks?.map((st: any) => ({
+          description: st.description,
+          estimatedTime: st.estimatedTime || 0,
+          priority: st.priority || 'medium'
+        })) || []
+      };
+
+      setTasks([...tasks, newTask]);
+      setUploadStatus({ status: 'idle' });
+
+    } catch (error) {
+      console.error('Error processing PDF:', error);
+      setUploadStatus({ 
+        status: 'error', 
+        message: error instanceof Error ? error.message : 'Failed to process PDF' 
+      });
+      setTimeout(() => setUploadStatus({ status: 'idle' }), 3000);
+    } finally {
+      setIsSubmitting(false);
+      if (e.target) e.target.value = ''; // Reset file input
+    }
+  };
+
+  const exportTaskToPDF = (task: Task) => {
+    const pdf = new jsPDF();
+    let yPosition = 20;
+    const lineHeight = 7;
+
+    // Title
+    pdf.setFontSize(16);
+    pdf.text(task.title, 20, yPosition);
+    yPosition += lineHeight * 2;
+
+    // Total Time
+    pdf.setFontSize(12);
+    pdf.text(`Total Estimated Time: ${task.totalEstimatedTime} minutes`, 20, yPosition);
+    yPosition += lineHeight * 2;
+
+    // Subtasks
+    if (task.subtasks && task.subtasks.length > 0) {
+      pdf.text('Subtasks:', 20, yPosition);
+      yPosition += lineHeight;
+
+      task.subtasks.forEach((subtask, index) => {
+        const letter = String.fromCharCode(97 + index);
+        const subtaskText = `${letter}. ${subtask.description}`;
+        const subtaskLines = pdf.splitTextToSize(subtaskText, 160);
+        pdf.text(subtaskLines, 20, yPosition);
+        yPosition += lineHeight * subtaskLines.length;
+        
+        pdf.setFontSize(10);
+        pdf.text(`    • ${subtask.estimatedTime} mins | Priority: ${subtask.priority}`, 20, yPosition);
+        pdf.setFontSize(12);
+        yPosition += lineHeight;
+      });
+    }
+
+    // Save the PDF
+    pdf.save(`task-${task.id}.pdf`);
+  };
+
   return (
     <div>
       <div className="flex gap-4 mb-6">
@@ -81,8 +195,36 @@ const TaskPrioritization = () => {
           className="flex-1 p-4 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-lg flex items-center justify-center gap-2"
         >
           <span>📝</span>
-          Add Task
+          Manual Task
         </button>
+        <div className="flex-1 relative">
+          <label className={`w-full p-4 rounded-lg bg-white border-2 border-dashed ${
+            uploadStatus.status === 'error' ? 'border-red-300 hover:border-red-500' :
+            uploadStatus.status === 'processing' ? 'border-yellow-300' :
+            uploadStatus.status === 'uploading' ? 'border-blue-300' :
+            'border-indigo-300 hover:border-indigo-500'
+          } cursor-pointer flex items-center justify-center gap-2 text-indigo-600`}>
+            <span>{
+              uploadStatus.status === 'uploading' ? '📤' :
+              uploadStatus.status === 'processing' ? '🔄' :
+              uploadStatus.status === 'error' ? '❌' :
+              '➕'
+            }</span>
+            {uploadStatus.status === 'idle' ? 'Add PDF' : uploadStatus.message}
+            <input
+              type="file"
+              accept=".pdf"
+              onChange={handlePdfUpload}
+              className="hidden"
+              disabled={uploadStatus.status !== 'idle'}
+            />
+          </label>
+          {uploadStatus.status === 'error' && (
+            <p className="absolute w-full text-center text-sm text-red-600 mt-1">
+              {uploadStatus.message}
+            </p>
+          )}
+        </div>
       </div>
 
       {showModal && (
@@ -187,6 +329,12 @@ const TaskPrioritization = () => {
                   </span>
                 </p>
               </div>
+              <button
+                onClick={() => exportTaskToPDF(task)}
+                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"
+              >
+                📄 Export to PDF
+              </button>
             </div>
             
             {task.subtasks && task.subtasks.length > 0 && (
