@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { GoogleGenerativeAI, Part } from '@google/generative-ai';
 import { useSettings } from '../contexts/SettingsContext';
 import * as pdfjsLib from 'pdfjs-dist';
+import jsPDF from 'jspdf';
 
 export interface Task {
   id: string;
@@ -10,6 +11,11 @@ export interface Task {
   description?: string;
   category: 'quick_win' | 'deep_work' | 'low_value';
   estimatedTime: number;
+  subtasks: Array<{
+    description: string;
+    estimatedTime: number;
+    priority: 'high' | 'medium' | 'low';
+  }>;
 }
 
 const TaskPrioritization = () => {
@@ -22,6 +28,10 @@ const TaskPrioritization = () => {
     deadline: '',
     description: ''
   });
+  const [uploadStatus, setUploadStatus] = useState<{
+    status: 'idle' | 'uploading' | 'processing' | 'error';
+    message?: string;
+  }>({ status: 'idle' });
 
   const categorizeTask = async (taskTitle: string) => {
     try {
@@ -64,63 +74,46 @@ Provide a JSON response with:
     }
   };
 
-  const extractTextFromPdf = async (file: File): Promise<string> => {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = '';
-    
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items.map((item: any) => item.str).join(' ');
-      fullText += pageText + '\n';
-    }
-    
-    return fullText;
-  };
-
-  const analyzePdfContent = async (text: string, file: File) => {
+  const generateSubtasks = async (taskTitle: string, description?: string) => {
     try {
-      console.log('🤖 Initializing Gemini API for PDF analysis...');
+      console.log('🤖 Generating subtasks with Gemini AI...');
       const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
+      const model = genAI.getGenerativeModel({ model: selectedModel });
 
-      const prompt = `Analyze this PDF content and extract:
-1. Task title/name
-2. Deadline (if any)
-3. Description or key details
-
-Please format your response as JSON:
-{
-  "title": "extracted title",
-  "deadline": "YYYY-MM-DD" or null,
-  "description": "extracted description"
-}`;
-
-      const imageData = await file.arrayBuffer();
-      const response = await model.generateContent([
-        prompt,
-        text,
-        {
-          inlineData: {
-            data: Buffer.from(imageData).toString('base64'),
-            mimeType: 'application/pdf'
-          }
-        }
-      ]);
+      const prompt = `As an AI task breakdown expert, analyze this task and break it down into smaller subtasks.
       
-      const result = await response.response;
-      const responseText = result.text();
+Task: "${taskTitle}"
+${description ? `Description: "${description}"` : ''}
+
+Create 2-4 subtasks that would help complete this task. For each subtask:
+1. Provide a clear, actionable description
+2. Estimate time needed in minutes
+3. Suggest priority (high/medium/low)
+
+Format response as JSON array:
+[
+  {
+    "description": "subtask description",
+    "estimatedTime": minutes_number,
+    "priority": "high|medium|low"
+  }
+]`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
       
-      const jsonMatch = responseText.match(/\{.*\}/s);
+      const jsonMatch = text.match(/\[.*\]/s);
       if (!jsonMatch) {
-        throw new Error('Invalid response format from Gemini');
+        throw new Error('Invalid response format');
       }
       
-      return JSON.parse(jsonMatch[0]);
+      const subtasks = JSON.parse(jsonMatch[0]);
+      console.log('✅ Subtasks generated successfully:', subtasks);
+      return subtasks;
     } catch (error) {
-      console.error('❌ Error analyzing PDF:', error);
-      throw error;
+      console.error('❌ Error generating subtasks:', error);
+      return [];
     }
   };
 
@@ -130,6 +123,7 @@ Please format your response as JSON:
 
     setIsSubmitting(true);
     const { category, estimatedTime } = await categorizeTask(taskForm.title);
+    const subtasks = await generateSubtasks(taskForm.title, taskForm.description);
     
     setTasks([...tasks, {
       id: Date.now().toString(),
@@ -137,7 +131,8 @@ Please format your response as JSON:
       deadline: taskForm.deadline ? new Date(taskForm.deadline) : undefined,
       description: taskForm.description,
       category,
-      estimatedTime
+      estimatedTime,
+      subtasks
     }]);
 
     setTaskForm({ title: '', deadline: '', description: '' });
@@ -151,9 +146,23 @@ Please format your response as JSON:
 
     try {
       setIsSubmitting(true);
-      const text = await extractTextFromPdf(file);
-      const analysis = await analyzePdfContent(text, file);
+      setUploadStatus({ status: 'uploading', message: 'Uploading PDF...' });
       
+      const formData = new FormData();
+      formData.append('pdf', file);
+
+      const response = await fetch('/api/parse-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.details || 'Failed to process PDF');
+      }
+
+      setUploadStatus({ status: 'processing', message: 'Analyzing content...' });
+      const analysis = await response.json();
       const { category, estimatedTime } = await categorizeTask(analysis.title);
       
       setTasks([...tasks, {
@@ -162,12 +171,19 @@ Please format your response as JSON:
         deadline: analysis.deadline ? new Date(analysis.deadline) : undefined,
         description: analysis.description,
         category,
-        estimatedTime
+        estimatedTime,
+        subtasks: analysis.subtasks || []
       }]);
+
+      setUploadStatus({ status: 'idle' });
 
     } catch (error) {
       console.error('Error processing PDF:', error);
-      alert('Failed to process PDF. Please try again or add task manually.');
+      setUploadStatus({ 
+        status: 'error', 
+        message: error instanceof Error ? error.message : 'Failed to process PDF' 
+      });
+      setTimeout(() => setUploadStatus({ status: 'idle' }), 3000);
     } finally {
       setIsSubmitting(false);
       if (e.target) e.target.value = ''; // Reset file input
@@ -192,6 +208,61 @@ Please format your response as JSON:
     }
   };
 
+  const exportTaskToPDF = (task: Task) => {
+    const pdf = new jsPDF();
+    let yPosition = 20;
+    const lineHeight = 7;
+
+    // Title
+    pdf.setFontSize(16);
+    pdf.text(task.title, 20, yPosition);
+    yPosition += lineHeight * 2;
+
+    // Deadline
+    pdf.setFontSize(12);
+    if (task.deadline) {
+      pdf.text(`Due: ${task.deadline.toLocaleDateString()}`, 20, yPosition);
+      yPosition += lineHeight;
+    }
+
+    // Estimated Time
+    pdf.text(`Estimated Time: ${task.estimatedTime} minutes`, 20, yPosition);
+    yPosition += lineHeight;
+
+    // Description
+    if (task.description) {
+      yPosition += lineHeight;
+      pdf.text('Description:', 20, yPosition);
+      yPosition += lineHeight;
+      const descriptionLines = pdf.splitTextToSize(task.description, 170);
+      pdf.text(descriptionLines, 20, yPosition);
+      yPosition += lineHeight * descriptionLines.length;
+    }
+
+    // Subtasks
+    if (task.subtasks && task.subtasks.length > 0) {
+      yPosition += lineHeight;
+      pdf.text('Subtasks:', 20, yPosition);
+      yPosition += lineHeight;
+
+      task.subtasks.forEach((subtask, index) => {
+        const letter = String.fromCharCode(97 + index);
+        const subtaskText = `${letter}. ${subtask.description}`;
+        const subtaskLines = pdf.splitTextToSize(subtaskText, 160);
+        pdf.text(subtaskLines, 20, yPosition);
+        yPosition += lineHeight * subtaskLines.length;
+        
+        pdf.setFontSize(10);
+        pdf.text(`    • ${subtask.estimatedTime} mins | Priority: ${subtask.priority}`, 20, yPosition);
+        pdf.setFontSize(12);
+        yPosition += lineHeight;
+      });
+    }
+
+    // Save the PDF
+    pdf.save(`task-${task.id}.pdf`);
+  };
+
   return (
     <div>
       <div className="flex gap-4 mb-6">
@@ -202,16 +273,34 @@ Please format your response as JSON:
           <span>📝</span>
           Manual Task
         </button>
-        <label className="flex-1 p-4 rounded-lg bg-white border-2 border-dashed border-indigo-300 hover:border-indigo-500 cursor-pointer flex items-center justify-center gap-2 text-indigo-600">
-          <span>➕</span>
-          Add PDF
-          <input
-            type="file"
-            accept=".pdf"
-            onChange={handlePdfUpload}
-            className="hidden"
-          />
-        </label>
+        <div className="flex-1 relative">
+          <label className={`w-full p-4 rounded-lg bg-white border-2 border-dashed ${
+            uploadStatus.status === 'error' ? 'border-red-300 hover:border-red-500' :
+            uploadStatus.status === 'processing' ? 'border-yellow-300' :
+            uploadStatus.status === 'uploading' ? 'border-blue-300' :
+            'border-indigo-300 hover:border-indigo-500'
+          } cursor-pointer flex items-center justify-center gap-2 text-indigo-600`}>
+            <span>{
+              uploadStatus.status === 'uploading' ? '📤' :
+              uploadStatus.status === 'processing' ? '🔄' :
+              uploadStatus.status === 'error' ? '❌' :
+              '➕'
+            }</span>
+            {uploadStatus.status === 'idle' ? 'Add PDF' : uploadStatus.message}
+            <input
+              type="file"
+              accept=".pdf"
+              onChange={handlePdfUpload}
+              className="hidden"
+              disabled={uploadStatus.status !== 'idle'}
+            />
+          </label>
+          {uploadStatus.status === 'error' && (
+            <p className="absolute w-full text-center text-sm text-red-600 mt-1">
+              {uploadStatus.message}
+            </p>
+          )}
+        </div>
       </div>
 
       {showModal && (
@@ -295,15 +384,50 @@ Please format your response as JSON:
                     key={task.id} 
                     className="p-4 bg-white rounded-lg shadow-sm border border-indigo-50 hover:shadow-md transition-shadow group"
                   >
-                    <p className="text-gray-800 font-medium group-hover:text-indigo-600 transition-colors">
-                      {task.title}
-                    </p>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <p className="text-gray-800 font-medium group-hover:text-indigo-600 transition-colors">
+                          {task.title}
+                        </p>
+                        {task.deadline && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            Due: {task.deadline.toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => exportTaskToPDF(task)}
+                        className="ml-2 p-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded"
+                        title="Export as PDF"
+                      >
+                        📄
+                      </button>
+                    </div>
+                    
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-sm text-indigo-400">⏱️</span>
                       <small className="text-indigo-400 font-medium">
                         {task.estimatedTime} mins
                       </small>
                     </div>
+                    
+                    {task.subtasks && task.subtasks.length > 0 && (
+                      <div className="mt-3 pl-4 border-l-2 border-indigo-100">
+                        {task.subtasks.map((subtask, index) => (
+                          <div key={index} className="mb-2 text-sm">
+                            <div className="flex items-start gap-2">
+                              <span className="text-gray-400">{String.fromCharCode(97 + index)}.</span>
+                              <div className="flex-1">
+                                <p className="text-gray-700">{subtask.description}</p>
+                                <p className="text-gray-500 text-xs mt-1">
+                                  {subtask.estimatedTime} mins • Priority: {subtask.priority}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               {tasks.filter(task => task.category === category).length === 0 && (
