@@ -4,6 +4,7 @@ import TaskPrioritization from '../components/TaskPrioritization';
 import FocusMode from '../components/FocusMode';
 import Analytics from '../components/Analytics';
 import Calendar from '../components/Calendar';
+import Settings from '../components/Settings';
 
 const Home: NextPage = () => {
   const [tasks, setTasks] = useState([]);
@@ -41,12 +42,19 @@ const Home: NextPage = () => {
             </div>
 
             {/* Right Column */}
-            <div>
+            <div className="space-y-6">
               <section className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-xl transition-all hover:shadow-2xl border border-indigo-50/50">
                 <h2 className="text-xl font-semibold mb-6 text-indigo-900 flex items-center gap-2">
                   <span className="text-2xl">⏱️</span> Focus Mode
                 </h2>
                 <FocusMode />
+              </section>
+
+              <section className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-xl transition-all hover:shadow-2xl border border-indigo-50/50">
+                <h2 className="text-xl font-semibold mb-6 text-indigo-900 flex items-center gap-2">
+                  <span className="text-2xl">⚙️</span> Settings
+                </h2>
+                <Settings />
               </section>
             </div>
           </div>

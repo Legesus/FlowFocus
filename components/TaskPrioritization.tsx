@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { useSettings } from '../contexts/SettingsContext';
 
 export interface Task {
   id: string;
@@ -9,6 +10,7 @@ export interface Task {
 }
 
 const TaskPrioritization = () => {
+  const { selectedModel } = useSettings();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -17,7 +19,7 @@ const TaskPrioritization = () => {
     try {
       console.log('🤖 Initializing Gemini API...');
       const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const model = genAI.getGenerativeModel({ model: selectedModel });
 
       console.log('🔄 Analyzing task with Gemini AI...');
       const prompt = `As an AI task prioritization expert, analyze this task and categorize it. Consider the following criteria:
