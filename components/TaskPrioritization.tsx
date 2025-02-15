@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, Part } from '@google/generative-ai';
 import { useSettings } from '../contexts/SettingsContext';
+import * as pdfjsLib from 'pdfjs-dist';
 
 export interface Task {
   id: string;
   title: string;
+  deadline?: Date;
+  description?: string;
   category: 'quick_win' | 'deep_work' | 'low_value';
   estimatedTime: number;
 }
@@ -12,8 +15,13 @@ export interface Task {
 const TaskPrioritization = () => {
   const { selectedModel } = useSettings();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [newTask, setNewTask] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [taskForm, setTaskForm] = useState({
+    title: '',
+    deadline: '',
+    description: ''
+  });
 
   const categorizeTask = async (taskTitle: string) => {
     try {
@@ -56,21 +64,114 @@ Provide a JSON response with:
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const extractTextFromPdf = async (file: File): Promise<string> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(' ');
+      fullText += pageText + '\n';
+    }
+    
+    return fullText;
+  };
+
+  const analyzePdfContent = async (text: string, file: File) => {
+    try {
+      console.log('🤖 Initializing Gemini API for PDF analysis...');
+      const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '');
+      const model = genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
+
+      const prompt = `Analyze this PDF content and extract:
+1. Task title/name
+2. Deadline (if any)
+3. Description or key details
+
+Please format your response as JSON:
+{
+  "title": "extracted title",
+  "deadline": "YYYY-MM-DD" or null,
+  "description": "extracted description"
+}`;
+
+      const imageData = await file.arrayBuffer();
+      const response = await model.generateContent([
+        prompt,
+        text,
+        {
+          inlineData: {
+            data: Buffer.from(imageData).toString('base64'),
+            mimeType: 'application/pdf'
+          }
+        }
+      ]);
+      
+      const result = await response.response;
+      const responseText = result.text();
+      
+      const jsonMatch = responseText.match(/\{.*\}/s);
+      if (!jsonMatch) {
+        throw new Error('Invalid response format from Gemini');
+      }
+      
+      return JSON.parse(jsonMatch[0]);
+    } catch (error) {
+      console.error('❌ Error analyzing PDF:', error);
+      throw error;
+    }
+  };
+
+  const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTask.trim() || isSubmitting) return;
+    if (!taskForm.title.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
-    const { category, estimatedTime } = await categorizeTask(newTask);
+    const { category, estimatedTime } = await categorizeTask(taskForm.title);
     
     setTasks([...tasks, {
       id: Date.now().toString(),
-      title: newTask,
+      title: taskForm.title,
+      deadline: taskForm.deadline ? new Date(taskForm.deadline) : undefined,
+      description: taskForm.description,
       category,
       estimatedTime
     }]);
-    setNewTask('');
+
+    setTaskForm({ title: '', deadline: '', description: '' });
+    setShowModal(false);
     setIsSubmitting(false);
+  };
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsSubmitting(true);
+      const text = await extractTextFromPdf(file);
+      const analysis = await analyzePdfContent(text, file);
+      
+      const { category, estimatedTime } = await categorizeTask(analysis.title);
+      
+      setTasks([...tasks, {
+        id: Date.now().toString(),
+        title: analysis.title,
+        deadline: analysis.deadline ? new Date(analysis.deadline) : undefined,
+        description: analysis.description,
+        category,
+        estimatedTime
+      }]);
+
+    } catch (error) {
+      console.error('Error processing PDF:', error);
+      alert('Failed to process PDF. Please try again or add task manually.');
+    } finally {
+      setIsSubmitting(false);
+      if (e.target) e.target.value = ''; // Reset file input
+    }
   };
 
   const getCategoryIcon = (category: string) => {
@@ -93,30 +194,81 @@ Provide a JSON response with:
 
   return (
     <div>
-      <form onSubmit={handleSubmit} className="mb-6">
-        <div className="relative bg-gradient-to-r from-indigo-50 to-blue-50 p-6 rounded-xl shadow-sm">
+      <div className="flex gap-4 mb-6">
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex-1 p-4 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-lg flex items-center justify-center gap-2"
+        >
+          <span>📝</span>
+          Manual Task
+        </button>
+        <label className="flex-1 p-4 rounded-lg bg-white border-2 border-dashed border-indigo-300 hover:border-indigo-500 cursor-pointer flex items-center justify-center gap-2 text-indigo-600">
+          <span>➕</span>
+          Add PDF
           <input
-            type="text"
-            value={newTask}
-            onChange={(e) => setNewTask(e.target.value)}
-            className="w-full p-4 rounded-lg bg-white shadow-sm border border-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent placeholder:text-gray-400 text-lg"
-            placeholder="What needs to be done?"
-            disabled={isSubmitting}
+            type="file"
+            accept=".pdf"
+            onChange={handlePdfUpload}
+            className="hidden"
           />
-          <button 
-            type="submit"
-            disabled={isSubmitting}
-            className={`mt-4 w-full py-4 px-6 rounded-lg font-medium transition-all
-              ${isSubmitting 
-                ? 'bg-indigo-300 cursor-not-allowed' 
-                : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:transform active:scale-[0.98]'} 
-              text-white shadow-lg flex items-center justify-center gap-2`}
-          >
-            <span>{isSubmitting ? '🤔' : '✨'}</span>
-            {isSubmitting ? 'Analyzing Task...' : 'Add Task'}
-          </button>
+        </label>
+      </div>
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-semibold mb-4">Add New Task</h3>
+            <form onSubmit={handleManualSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={taskForm.title}
+                    onChange={(e) => setTaskForm({...taskForm, title: e.target.value})}
+                    className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Deadline</label>
+                  <input
+                    type="datetime-local"
+                    value={taskForm.deadline}
+                    onChange={(e) => setTaskForm({...taskForm, deadline: e.target.value})}
+                    className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    value={taskForm.description}
+                    onChange={(e) => setTaskForm({...taskForm, description: e.target.value})}
+                    className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 p-2 rounded-lg border border-gray-300 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 p-2 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
+                >
+                  {isSubmitting ? 'Adding...' : 'Add Task'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </form>
+      )}
 
       <div className="space-y-4">
         {['deep_work', 'quick_win', 'low_value'].map(category => (

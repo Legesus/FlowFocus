@@ -12,7 +12,7 @@ interface SettingsContextType {
 export const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [selectedModel, setSelectedModel] = useState('gemini-1.0-pro-latest');
+  const [selectedModel, setSelectedModel] = useState('gemini-2.0-flash');
   const [syncOutlook, setSyncOutlook] = useState(false);
   const [syncGoogle, setSyncGoogle] = useState(false);
 
