@@ -35,46 +35,38 @@ const Analytics = ({ tasks }: AnalyticsProps) => {
   };
 
   const calculateTaskStats = () => {
-    const highValueTime = tasks
-      .filter(task => task.category === 'deep_work')
-      .reduce((acc, task) => acc + task.estimatedTime, 0);
+    const highPriorityTime = tasks
+      .flatMap(task => task.subtasks)
+      .filter(subtask => subtask.priority === 'high')
+      .reduce((acc, subtask) => acc + subtask.estimatedTime, 0);
 
-    const lowValueTime = tasks
-      .filter(task => task.category === 'low_value')
-      .reduce((acc, task) => acc + task.estimatedTime, 0);
+    const lowPriorityTime = tasks
+      .flatMap(task => task.subtasks)
+      .filter(subtask => subtask.priority === 'low')
+      .reduce((acc, subtask) => acc + subtask.estimatedTime, 0);
 
-    return { highValueTime, lowValueTime };
+    return { highPriorityTime, lowPriorityTime };
   };
 
-  const { highValueTime, lowValueTime } = calculateTaskStats();
+  const { highPriorityTime, lowPriorityTime } = calculateTaskStats();
   const currentStreak = focusStreaks.length;
 
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 shadow-sm">
         <h3 className="font-bold text-lg mb-4 text-indigo-900">Focus Stats</h3>
-        <div className="grid grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-indigo-100">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-2xl">🧠</span>
-              <p className="text-sm text-gray-600">Deep Work</p>
-            </div>
-            <p className="text-2xl font-bold text-indigo-600">{highValueTime} mins</p>
-            <div className="mt-2 text-xs text-indigo-400 font-medium">
-              {highValueTime > 180 ? '🎯 Crushing it!' : 'Keep pushing!'}
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <p className="text-gray-600 text-sm">Current Streak</p>
+            <p className="text-2xl font-bold text-indigo-600">{currentStreak} days</p>
           </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-indigo-100">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-2xl">⚡</span>
-              <p className="text-sm text-gray-600">Quick Wins</p>
-            </div>
-            <p className="text-2xl font-bold text-green-600">
-              {tasks.filter(t => t.category === 'quick_win').length}
-            </p>
-            <div className="mt-2 text-xs text-green-400 font-medium">
-              Tasks completed today
-            </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <p className="text-gray-600 text-sm">High Priority Time</p>
+            <p className="text-2xl font-bold text-indigo-600">{highPriorityTime} mins</p>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <p className="text-gray-600 text-sm">Low Priority Time</p>
+            <p className="text-2xl font-bold text-indigo-600">{lowPriorityTime} mins</p>
           </div>
         </div>
       </div>
@@ -106,14 +98,11 @@ const Analytics = ({ tasks }: AnalyticsProps) => {
       </div>
 
       {personalizedTip && (
-        <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl p-6 shadow-sm">
-          <div className="flex items-start gap-4">
-            <span className="text-2xl">💡</span>
-            <div>
-              <h3 className="font-bold text-lg mb-2 text-amber-900">Daily Insight</h3>
-              <p className="text-amber-800">{personalizedTip}</p>
-            </div>
-          </div>
+        <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4">
+          <p className="text-sm text-yellow-800">
+            <span className="mr-2">💡</span>
+            {personalizedTip}
+          </p>
         </div>
       )}
     </div>
