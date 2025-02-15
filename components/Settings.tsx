@@ -21,9 +21,9 @@ const Settings = () => {
           onChange={(e) => setSelectedModel(e.target.value)}
           className="w-full p-2 rounded-lg border border-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent bg-white"
         >
-          <option value="gemini-1.0-pro-latest">Gemini Pro</option>
-          <option value="gemini-1.0-pro">Gemini Pro Legacy</option>
-          <option value="gemini-pro-vision">Gemini Pro Vision</option>
+          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+          <option value="gemini-2.0-flash-lite-preview-02-05">Gemini 2.0 Flash Lite Preview</option>
+          <option value="gemini-2.0-pro-exp-02-05">Gemini 2.0 Pro Experimental</option>
         </select>
       </div>
 
