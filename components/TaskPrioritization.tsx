@@ -244,12 +244,14 @@ const TaskPrioritization = () => {
   const showManualTaskModal = () => {
     showModal(
       <>
-        <h3 className="text-xl font-semibold mb-4">Add New Task</h3>
+        <h3 id="modal-title" className="text-xl font-semibold mb-4">Add New Task</h3>
         <form onSubmit={handleManualSubmit}>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
+              <label htmlFor="manual-task-title" className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
               <input
+                id="manual-task-title"
+                name="taskTitle"
                 type="text"
                 value={taskForm.title}
                 onChange={(e) => setTaskForm({...taskForm, title: e.target.value})}
@@ -263,35 +265,57 @@ const TaskPrioritization = () => {
               {taskForm.subtasks.map((subtask, index) => (
                 <div key={index} className="flex gap-2 items-start">
                   <div className="flex-1 space-y-2">
-                    <input
-                      type="text"
-                      value={subtask.description}
-                      onChange={(e) => handleSubtaskChange(index, 'description', e.target.value)}
-                      placeholder="Subtask description"
-                      className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                    />
-                    <div className="flex gap-2">
+                    <div>
+                      <label htmlFor={`manual-subtask-desc-${index}`} className="sr-only">
+                        Subtask {index + 1} description
+                      </label>
                       <input
-                        type="number"
-                        value={subtask.estimatedTime}
-                        onChange={(e) => handleSubtaskChange(index, 'estimatedTime', parseInt(e.target.value) || 0)}
-                        placeholder="Minutes"
-                        className="w-24 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                        id={`manual-subtask-desc-${index}`}
+                        name={`subtaskDescription${index}`}
+                        type="text"
+                        value={subtask.description}
+                        onChange={(e) => handleSubtaskChange(index, 'description', e.target.value)}
+                        placeholder="Subtask description"
+                        className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
                       />
-                      <select
-                        value={subtask.priority}
-                        onChange={(e) => handleSubtaskChange(index, 'priority', e.target.value as 'high' | 'medium' | 'low')}
-                        className="flex-1 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                      >
-                        <option value="high">High Priority</option>
-                        <option value="medium">Medium Priority</option>
-                        <option value="low">Low Priority</option>
-                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <div>
+                        <label htmlFor={`manual-subtask-time-${index}`} className="sr-only">
+                          Estimated time for subtask {index + 1}
+                        </label>
+                        <input
+                          id={`manual-subtask-time-${index}`}
+                          name={`subtaskTime${index}`}
+                          type="number"
+                          value={subtask.estimatedTime}
+                          onChange={(e) => handleSubtaskChange(index, 'estimatedTime', parseInt(e.target.value) || 0)}
+                          placeholder="Minutes"
+                          className="w-24 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label htmlFor={`manual-subtask-priority-${index}`} className="sr-only">
+                          Priority for subtask {index + 1}
+                        </label>
+                        <select
+                          id={`manual-subtask-priority-${index}`}
+                          name={`subtaskPriority${index}`}
+                          value={subtask.priority}
+                          onChange={(e) => handleSubtaskChange(index, 'priority', e.target.value as 'high' | 'medium' | 'low')}
+                          className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                        >
+                          <option value="high">High Priority</option>
+                          <option value="medium">Medium Priority</option>
+                          <option value="low">Low Priority</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleRemoveSubtask(index)}
+                    aria-label={`Remove subtask ${index + 1}`}
                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
                   >
                     ✕
@@ -324,12 +348,14 @@ const TaskPrioritization = () => {
   const showPdfTaskModal = () => {
     showModal(
       <>
-        <h3 className="text-xl font-semibold mb-4">Review PDF Task</h3>
+        <h3 id="modal-title" className="text-xl font-semibold mb-4">Review PDF Task</h3>
         <form onSubmit={handlePdfSubmit}>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
+              <label htmlFor="pdf-task-title" className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
               <input
+                id="pdf-task-title"
+                name="pdfTaskTitle"
                 type="text"
                 value={taskForm.title}
                 onChange={(e) => setTaskForm({...taskForm, title: e.target.value})}
@@ -339,8 +365,10 @@ const TaskPrioritization = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Priority Allocation</label>
+              <label htmlFor="priority-allocation" className="block text-sm font-medium text-gray-700 mb-1">Priority Allocation</label>
               <select
+                id="priority-allocation"
+                name="priorityAllocation"
                 value={priorityAllocation}
                 onChange={(e) => {
                   setPriorityAllocation(e.target.value as typeof priorityAllocation);
@@ -356,39 +384,61 @@ const TaskPrioritization = () => {
             </div>
 
             <div className="space-y-3">
-              <label className="block text-sm font-medium text-gray-700">Subtasks</label>
+              <label className="block text-sm font-medium text-gray-700">Subtasks from PDF</label>
               {taskForm.subtasks.map((subtask, index) => (
                 <div key={index} className="flex gap-2 items-start">
                   <div className="flex-1 space-y-2">
-                    <input
-                      type="text"
-                      value={subtask.description}
-                      onChange={(e) => handleSubtaskChange(index, 'description', e.target.value)}
-                      placeholder="Subtask description"
-                      className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                    />
-                    <div className="flex gap-2">
+                    <div>
+                      <label htmlFor={`pdf-subtask-desc-${index}`} className="sr-only">
+                        Subtask {index + 1} description
+                      </label>
                       <input
-                        type="number"
-                        value={subtask.estimatedTime}
-                        onChange={(e) => handleSubtaskChange(index, 'estimatedTime', parseInt(e.target.value) || 0)}
-                        placeholder="Minutes"
-                        className="w-24 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                        id={`pdf-subtask-desc-${index}`}
+                        name={`pdfSubtaskDescription${index}`}
+                        type="text"
+                        value={subtask.description}
+                        onChange={(e) => handleSubtaskChange(index, 'description', e.target.value)}
+                        placeholder="Subtask description"
+                        className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
                       />
-                      <select
-                        value={subtask.priority}
-                        onChange={(e) => handleSubtaskChange(index, 'priority', e.target.value as 'high' | 'medium' | 'low')}
-                        className="flex-1 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                      >
-                        <option value="high">High Priority</option>
-                        <option value="medium">Medium Priority</option>
-                        <option value="low">Low Priority</option>
-                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <div>
+                        <label htmlFor={`pdf-subtask-time-${index}`} className="sr-only">
+                          Estimated time for subtask {index + 1}
+                        </label>
+                        <input
+                          id={`pdf-subtask-time-${index}`}
+                          name={`pdfSubtaskTime${index}`}
+                          type="number"
+                          value={subtask.estimatedTime}
+                          onChange={(e) => handleSubtaskChange(index, 'estimatedTime', parseInt(e.target.value) || 0)}
+                          placeholder="Minutes"
+                          className="w-24 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label htmlFor={`pdf-subtask-priority-${index}`} className="sr-only">
+                          Priority for subtask {index + 1}
+                        </label>
+                        <select
+                          id={`pdf-subtask-priority-${index}`}
+                          name={`pdfSubtaskPriority${index}`}
+                          value={subtask.priority}
+                          onChange={(e) => handleSubtaskChange(index, 'priority', e.target.value as 'high' | 'medium' | 'low')}
+                          className="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                        >
+                          <option value="high">High Priority</option>
+                          <option value="medium">Medium Priority</option>
+                          <option value="low">Low Priority</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleRemoveSubtask(index)}
+                    aria-label={`Remove subtask ${index + 1}`}
                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
                   >
                     ✕
@@ -423,35 +473,42 @@ const TaskPrioritization = () => {
       <div className="flex gap-4 mb-6">
         <button
           onClick={showManualTaskModal}
+          aria-label="Add manual task"
           className="flex-1 p-4 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-lg flex items-center justify-center gap-2"
         >
-          <span>📝</span>
+          <span aria-hidden="true">📝</span>
           Manual Task
         </button>
         <div className="flex-1 relative">
-          <label className={`w-full p-4 rounded-lg bg-white border-2 border-dashed ${
-            uploadStatus.status === 'error' ? 'border-red-300 hover:border-red-500' :
-            uploadStatus.status === 'processing' ? 'border-yellow-300' :
-            uploadStatus.status === 'uploading' ? 'border-blue-300' :
-            'border-indigo-300 hover:border-indigo-500'
-          } cursor-pointer flex items-center justify-center gap-2 text-indigo-600`}>
-            <span>{
+          <label 
+            htmlFor="pdf-upload"
+            className={`w-full p-4 rounded-lg bg-white border-2 border-dashed ${
+              uploadStatus.status === 'error' ? 'border-red-300 hover:border-red-500' :
+              uploadStatus.status === 'processing' ? 'border-yellow-300' :
+              uploadStatus.status === 'uploading' ? 'border-blue-300' :
+              'border-indigo-300 hover:border-indigo-500'
+            } cursor-pointer flex items-center justify-center gap-2 text-indigo-600`}
+          >
+            <span aria-hidden="true">{
               uploadStatus.status === 'uploading' ? '📤' :
               uploadStatus.status === 'processing' ? '🔄' :
               uploadStatus.status === 'error' ? '❌' :
               '➕'
             }</span>
-            {uploadStatus.status === 'idle' ? 'Add PDF' : uploadStatus.message}
+            <span>{uploadStatus.status === 'idle' ? 'Add PDF' : uploadStatus.message}</span>
             <input
+              id="pdf-upload"
+              name="pdfUpload"
               type="file"
               accept=".pdf"
               onChange={handlePdfUpload}
               className="hidden"
               disabled={uploadStatus.status !== 'idle'}
+              aria-label="Upload PDF file"
             />
           </label>
           {uploadStatus.status === 'error' && (
-            <p className="absolute w-full text-center text-sm text-red-600 mt-1">
+            <p className="absolute w-full text-center text-sm text-red-600 mt-1" role="alert">
               {uploadStatus.message}
             </p>
           )}
@@ -466,26 +523,27 @@ const TaskPrioritization = () => {
           >
             <div className="flex justify-between items-start">
               <div className="flex-1">
-                <p className="text-gray-800 font-medium">
+                <h3 className="text-gray-800 font-medium">
                   {task.title}
                   <span className="ml-2 text-sm text-gray-500">
                     (Total: {task.totalEstimatedTime} mins)
                   </span>
-                </p>
+                </h3>
               </div>
               <button
                 onClick={() => exportTaskToPDF(task)}
+                aria-label={`Export ${task.title} to PDF`}
                 className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"
               >
-                📄 Export to PDF
+                <span aria-hidden="true">📄</span> Export to PDF
               </button>
             </div>
             
             {task.subtasks && task.subtasks.length > 0 && (
-              <div className="mt-3 space-y-2">
+              <div className="mt-3 space-y-2" role="list" aria-label={`Subtasks for ${task.title}`}>
                 {task.subtasks.map((subtask, index) => (
-                  <div key={index} className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
-                    <span className="text-gray-400">{index + 1}.</span>
+                  <div key={index} className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg" role="listitem">
+                    <span className="text-gray-400" aria-hidden="true">{index + 1}.</span>
                     <div className="flex-1">
                       <p className="text-gray-700">{subtask.description}</p>
                       <p className="text-gray-500 text-sm">
@@ -500,7 +558,7 @@ const TaskPrioritization = () => {
         ))}
         
         {tasks.length === 0 && (
-          <div className="text-center py-8">
+          <div className="text-center py-8" role="status">
             <p className="text-gray-400">No tasks yet</p>
             <p className="text-sm text-gray-400 mt-1">Add a task to get started!</p>
           </div>

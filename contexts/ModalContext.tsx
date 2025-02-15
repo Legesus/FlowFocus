@@ -37,10 +37,14 @@ export function ModalProvider({ children }: { children: ReactNode }) {
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 overflow-y-auto"
           style={{ zIndex: 9999 }}
           onClick={hideModal}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
         >
           <div 
             className="bg-white rounded-xl p-6 w-full max-w-4xl my-8 mx-auto relative"
             onClick={e => e.stopPropagation()}
+            role="document"
           >
             {modalContent}
           </div>
