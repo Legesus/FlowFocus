@@ -15,16 +15,25 @@ const TaskPrioritization = () => {
 
   const categorizeTask = async (taskTitle: string) => {
     try {
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      console.log('🤖 Initializing Gemini API...');
+      const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '');
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-      const prompt = `Analyze this task and categorize it into one of these categories:
-      - 'quick_win' (takes less than 10 mins)
-      - 'deep_work' (complex, high-impact task)
-      - 'low_value' (should be delegated or deleted)
-      Also estimate how many minutes it will take.
-      Return only a JSON with 'category' and 'estimatedTime' fields.
-      Task: "${taskTitle}"`;
+      console.log('🔄 Analyzing task with Gemini AI...');
+      const prompt = `As an AI task prioritization expert, analyze this task and categorize it. Consider the following criteria:
+
+Task: "${taskTitle}"
+
+Categorize into one of:
+- 'quick_win': Simple tasks that take less than 10 minutes and provide immediate value
+- 'deep_work': Complex, high-impact tasks requiring focused attention and strategic thinking
+- 'low_value': Tasks that could be delegated, automated, or possibly eliminated
+
+Provide a JSON response with:
+{
+  "category": "category_name",
+  "estimatedTime": estimated_minutes_number
+}`;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
@@ -36,9 +45,11 @@ const TaskPrioritization = () => {
         throw new Error('Invalid response format');
       }
       
-      return JSON.parse(jsonMatch[0]);
+      const parsedResult = JSON.parse(jsonMatch[0]);
+      console.log('✅ Task analyzed successfully:', parsedResult);
+      return parsedResult;
     } catch (error) {
-      console.error('Error categorizing task:', error);
+      console.error('❌ Error analyzing task:', error);
       return { category: 'quick_win', estimatedTime: 5 };
     }
   };
