@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 
 const Settings = () => {
@@ -8,14 +8,65 @@ const Settings = () => {
     syncOutlook,
     setSyncOutlook,
     syncGoogle,
-    setSyncGoogle
+    setSyncGoogle,
+    geminiApiKey,
+    setGeminiApiKey
   } = useSettings();
+
+  const [showApiKey, setShowApiKey] = useState(false);
 
   return (
     <div className="space-y-6">
-      {/* Model Selection */}
+      {/* Model Selection and API Key */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Selected Model</label>
+        <div className="flex items-center justify-between mb-4">
+          <label className="block text-sm font-medium text-gray-700">Selected Model</label>
+          <button
+            onClick={() => setShowApiKey(!showApiKey)}
+            className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+            title="API Key Settings"
+          >
+            ⚙️
+          </button>
+        </div>
+        
+        {showApiKey && (
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Gemini API Key
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={geminiApiKey}
+                onChange={(e) => setGeminiApiKey(e.target.value)}
+                placeholder="Enter your Gemini API key"
+                className="flex-1 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400 focus:border-transparent text-sm"
+              />
+              {geminiApiKey && (
+                <button
+                  onClick={() => setGeminiApiKey('')}
+                  className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Clear API Key"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Get your API key from the{' '}
+              <a
+                href="https://makersuite.google.com/app/apikey"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 hover:text-indigo-800"
+              >
+                Google AI Studio
+              </a>
+            </p>
+          </div>
+        )}
+
         <select
           value={selectedModel}
           onChange={(e) => setSelectedModel(e.target.value)}

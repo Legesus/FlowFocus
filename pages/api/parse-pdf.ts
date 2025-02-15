@@ -40,6 +40,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const [fields, files] = await form.parse(req);
     const file = files.pdf?.[0];
+    const apiKey = fields.apiKey?.[0];
+
+    if (!apiKey) {
+      return res.status(400).json({ error: "API key is required" });
+    }
 
     if (!file) {
       return res.status(400).json({ error: "No PDF file uploaded" });
@@ -57,11 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: "Failed to read uploaded file" });
     }
 
-    if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
-      return res.status(500).json({ error: "Gemini API key not configured" });
-    }
-
-    const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
     const prompt = `Analyze this PDF and extract the following information:

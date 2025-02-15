@@ -19,7 +19,7 @@ export interface Task {
 }
 
 const TaskPrioritization = () => {
-  const { selectedModel } = useSettings();
+  const { selectedModel, geminiApiKey } = useSettings();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -34,9 +34,13 @@ const TaskPrioritization = () => {
   }>({ status: 'idle' });
 
   const categorizeTask = async (taskTitle: string) => {
+    if (!geminiApiKey) {
+      throw new Error('Please set your Gemini API key in Settings');
+    }
+
     try {
       console.log('🤖 Initializing Gemini API...');
-      const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '');
+      const genAI = new GoogleGenerativeAI(geminiApiKey);
       const model = genAI.getGenerativeModel({ model: selectedModel });
 
       console.log('🔄 Analyzing task with Gemini AI...');
@@ -75,9 +79,13 @@ Provide a JSON response with:
   };
 
   const generateSubtasks = async (taskTitle: string, description?: string) => {
+    if (!geminiApiKey) {
+      throw new Error('Please set your Gemini API key in Settings');
+    }
+
     try {
       console.log('🤖 Generating subtasks with Gemini AI...');
-      const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '');
+      const genAI = new GoogleGenerativeAI(geminiApiKey);
       const model = genAI.getGenerativeModel({ model: selectedModel });
 
       const prompt = `As an AI task breakdown expert, analyze this task and break it down into smaller subtasks.
@@ -121,28 +129,42 @@ Format response as JSON array:
     e.preventDefault();
     if (!taskForm.title.trim() || isSubmitting) return;
 
-    setIsSubmitting(true);
-    const { category, estimatedTime } = await categorizeTask(taskForm.title);
-    const subtasks = await generateSubtasks(taskForm.title, taskForm.description);
-    
-    setTasks([...tasks, {
-      id: Date.now().toString(),
-      title: taskForm.title,
-      deadline: taskForm.deadline ? new Date(taskForm.deadline) : undefined,
-      description: taskForm.description,
-      category,
-      estimatedTime,
-      subtasks
-    }]);
+    try {
+      setIsSubmitting(true);
+      const { category, estimatedTime } = await categorizeTask(taskForm.title);
+      const subtasks = await generateSubtasks(taskForm.title, taskForm.description);
+      
+      setTasks([...tasks, {
+        id: Date.now().toString(),
+        title: taskForm.title,
+        deadline: taskForm.deadline ? new Date(taskForm.deadline) : undefined,
+        description: taskForm.description,
+        category,
+        estimatedTime,
+        subtasks
+      }]);
 
-    setTaskForm({ title: '', deadline: '', description: '' });
-    setShowModal(false);
-    setIsSubmitting(false);
+      setTaskForm({ title: '', deadline: '', description: '' });
+      setShowModal(false);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to process task');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!geminiApiKey) {
+      setUploadStatus({
+        status: 'error',
+        message: 'Please set your Gemini API key in Settings'
+      });
+      if (e.target) e.target.value = '';
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -150,6 +172,7 @@ Format response as JSON array:
       
       const formData = new FormData();
       formData.append('pdf', file);
+      formData.append('apiKey', geminiApiKey);
 
       const response = await fetch('/api/parse-pdf', {
         method: 'POST',
